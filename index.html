@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Care for a plant and see how water, sunlight, and music shape its response.">
+<title>Wait for a New Leaf</title>
+<style>
+:root{color-scheme:light;--ink:#192d20;--muted:#516254;--paper:#f6f7ef;--line:#dce2d5;--fern:#28543c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:1rem/1.55 system-ui,sans-serif}
+button,input{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid #187390;outline-offset:4px}
+main{width:min(1104px,calc(100% - 64px));margin:0 auto;padding:36px 0 52px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:18px}
+header span{display:flex;align-items:center;gap:9px;font-size:.875rem;letter-spacing:.09em;font-weight:650}
+header span::before{content:"";width:11px;height:15px;background:#3e6848;border-radius:75% 0 75% 30%;transform:rotate(24deg)}
+.quiet{background:transparent;color:var(--fern);border:1px solid #bdcbbd;border-radius:999px;padding:7px 14px;font-size:.875rem}
+.quiet:hover{background:#e9eee1}
+.intro{margin:29px 0 24px}
+h1{font:600 clamp(2.65rem,6.4vw,4.45rem)/1.12 Georgia,"Times New Roman",serif;letter-spacing:-.035em;margin:0 0 11px}
+.intro p{margin:0;color:var(--muted)}
+.game{display:grid;grid-template-columns:minmax(0,1.78fr) minmax(280px,1fr);gap:20px;align-items:stretch}
+figure{margin:0;position:relative;min-width:0;min-height:450px;overflow:hidden;isolation:isolate;background:#dfe8d8;border-radius:23px}
+canvas{position:absolute;inset:0;display:block;width:100%;height:100%}
+figcaption{position:absolute;bottom:16px;left:16px;right:16px;width:fit-content;max-width:calc(100% - 32px);background:#fbfcf2ee;border:1px solid #fff9;border-radius:12px;padding:9px 13px;color:#23412d;font-size:.875rem}
+.controls{background:#fcfcf7;border:1px solid var(--line);border-radius:23px;padding:23px;display:flex;flex-direction:column;justify-content:center;gap:18px}
+.control + .control{border-top:1px solid var(--line);padding-top:16px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+label,.label{font-size:1.02rem;font-weight:700}
+.condition{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 9px;background:#e9ece3;color:#465649;font-size:.875rem;font-weight:650;white-space:nowrap}
+[data-tone="good"]{--condition-bg:#e2efd9;--condition-fg:#264c30}
+[data-tone="adjust"]{--condition-bg:#f6e8c8;--condition-fg:#694713}
+.condition[data-tone],.care[data-tone]{background:var(--condition-bg);color:var(--condition-fg)}
+.care{position:absolute;top:14px;left:14px;max-width:calc(100% - 28px);background:#fbfcf2f5;border:1px solid #fff9;border-radius:13px;padding:9px 13px;font-size:.875rem}
+.care strong,.care span{display:block}
+.care strong{font-size:.97rem}
+.light-track{position:relative;margin-top:5px}
+.light-track input[type=range]{position:relative;margin:0;appearance:none;background:transparent}
+.light-track input::-webkit-slider-runnable-track{height:7px;border-radius:8px;background:var(--light-track)}
+.light-track input::-moz-range-track{height:7px;border-radius:8px;background:var(--light-track)}
+.light-track input::-webkit-slider-thumb{appearance:none;width:17px;height:17px;margin-top:-5px;border:2px solid #fcfcf7;border-radius:50%;background:var(--fern);box-shadow:0 0 0 1px var(--fern)}
+.light-track input::-moz-range-thumb{width:13px;height:13px;border:2px solid #fcfcf7;border-radius:50%;background:var(--fern);box-shadow:0 0 0 1px var(--fern)}
+.controls .hint{min-height:1.55em}
+.music-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}.music-actions .quiet{padding:4px 10px}
+.water{width:100%;border:0;background:var(--fern);color:#fff;border-radius:11px;padding:11px 14px;font-weight:650;margin-top:9px;transition:background .2s}
+.water:hover{background:#1b4430}
+.water:active{background:#132e21}
+input[type=range]{display:block;width:100%;height:28px;margin:5px 0 0;accent-color:var(--fern);cursor:pointer}
+.scale{display:flex;justify-content:space-between;color:var(--muted);font-size:.875rem}
+.hint{color:var(--muted);font-size:.875rem;margin:7px 0 0}
+#play{min-width:65px}
+@media(max-width:700px){main{width:calc(100% - 28px);padding-top:16px}.intro{margin:20px 0 16px}.game{grid-template-columns:1fr;gap:12px}figure{min-height:clamp(305px,76vw,410px)}.controls{padding:17px;gap:14px}.control + .control{padding-top:12px}}
+</style>
+</head>
+<body>
+<main>
+<header><span>Plant Care Simulator</span><button class="quiet" id="reset">Start Over</button></header>
+<section class="intro" aria-labelledby="title">
+<h1 id="title">Wait for a New Leaf</h1>
+<p>Give it a little water, adjust the light, or play some music. See how it responds.</p>
+</section>
+<div class="game">
+<figure aria-label="Potted plant">
+<canvas id="scene" aria-hidden="true"></canvas>
+<div class="care" id="care" role="status">
+<strong id="care-title">Needs attention</strong>
+<span id="care-tip">The soil is dry. Give it a little water.</span>
+</div>
+<figcaption id="observation" aria-live="off">The soil looks a little dry.</figcaption>
+</figure>
+<section class="controls" aria-label="Plant care controls">
+<div class="control">
+<div class="row"><span class="label">Water</span><span class="condition" id="soil">Too dry</span></div>
+<button class="water" id="water" aria-describedby="water-tip">Water the Plant</button>
+<p class="hint" id="water-tip">A little water would help.</p>
+</div>
+<div class="control">
+<div class="row"><label for="light">Sunlight</label><span class="condition" id="light-state">✓ Just right</span></div>
+<div class="light-track"><input id="light" type="range" min="0" max="100" value="55" aria-describedby="light-range"></div>
+<div class="scale"><span>Shade</span><span id="light-range">Ideal range</span><span>Bright</span></div>
+</div>
+<div class="control">
+<div class="row"><label for="volume">Music</label><div class="music-actions"><span class="condition" id="music-state">✓ Quiet</span><button class="quiet" id="play" aria-pressed="false">Play</button></div></div>
+<input id="volume" type="range" min="0" max="100" value="35" aria-label="Music volume" aria-describedby="music-state">
+<div class="scale"><span>Soft</span><output id="volume-value" for="volume">35%</output><span>Loud</span></div>
+<p class="hint" id="sound-error" hidden>Your browser cannot play the music right now. The volume setting still affects the plant.</p>
+</div>
+</section>
+</div>
+</main>
+<script>
+const get = (id) => document.getElementById(id);
+const canvas = get('scene');
+const brush = canvas.getContext('2d');
+const light = get('light');
+const volume = get('volume');
+const play = get('play');
+const soil = get('soil');
+const lightState = get('light-state');
+const musicState = get('music-state');
+const care = get('care');
+const lightMin = 35;
+const lightMax = 72;
+const moistureMin = 39;
+const moistureMax = 72;
+const loudVolume = 72;
+light.parentElement.style.setProperty(
+  '--light-track',
+  'linear-gradient(to right, #dce2d5 ' + lightMin + '%, #8fae82 ' + lightMin + '% ' + lightMax + '%, #dce2d5 ' + lightMax + '%)'
+);
+get('light-range').textContent = 'Ideal ' + lightMin + '–' + lightMax + '%';
+const observation = get('observation');
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, value));
+const mix = (from, to, amount) => from + (to - from) * amount;
+const initialPlant = () => ({
+  moisture: 32, light: 55, volume: 35, playing: false, clicks: [],
+  age: 0, lastWater: -10, stable: 0, growth: 0, posture: 'resting',
+  bend: 0, fold: 0, everWet: false, everHid: false, announcedGrowth: false
+});
+let plant = initialPlant();
+
+function waterPlant() {
+  plant.moisture = clamp(plant.moisture + 23);
+  plant.clicks.push(plant.age);
+  plant.lastWater = plant.age;
+  plant.stable = 0;
+  update(0);
+}
+
+function update(seconds) {
+  plant.age += seconds;
+  plant.moisture = clamp(plant.moisture - seconds * (.68 + plant.light / 120));
+  plant.clicks = plant.clicks.filter((time) => plant.age - time < 4);
+  const damp = plant.moisture >= moistureMax;
+  const dry = plant.moisture < moistureMin;
+  const dim = plant.light < lightMin;
+  const bright = plant.light > lightMax;
+  const soothingLight = !dim && !bright;
+  const loud = plant.playing && plant.volume >= loudVolume;
+  const hiding = loud && plant.clicks.length >= 2;
+  const sinceWater = plant.age - plant.lastWater;
+  plant.everWet ||= damp;
+  plant.everHid ||= hiding;
+
+  if (hiding) plant.posture = 'hiding';
+  else if (damp && sinceWater >= .8) plant.posture = 'drooping';
+  else if (dry || !soothingLight || loud || damp || sinceWater < 1) plant.posture = 'resting';
+  else plant.posture = 'open';
+
+  plant.stable = plant.posture === 'open' ? plant.stable + seconds : 0;
+  if (plant.posture === 'open' && (plant.stable >= 4 || plant.growth > 0)) {
+    plant.growth = clamp(plant.growth + seconds * .47, 0, 1);
+  }
+  const greenShoot = plant.growth >= .84 && !plant.announcedGrowth && plant.posture === 'open';
+  setCondition(soil, damp ? 'Too wet' : dry ? 'Too dry' : '✓ Just right', !damp && !dry);
+  setText(get('water-tip'), damp ? 'Let the puddle dry up before watering again.' : dry ? 'A little water would help.' : 'The soil has enough water for now.');
+  const lightLabel = dim ? 'Too dim' : bright ? 'Too bright' : '✓ Just right';
+  setCondition(lightState, lightLabel, soothingLight);
+  light.setAttribute('aria-valuetext', plant.light + '%, ' + lightLabel.replace('✓ ', ''));
+  setCondition(musicState, loud ? 'Too loud' : plant.playing && plant.volume > 0 ? '✓ Just right' : '✓ Quiet', !loud);
+
+  const needsAdjustment = damp || dry || !soothingLight || loud;
+  const waiting = plant.growth < 1;
+  care.dataset.tone = needsAdjustment ? 'adjust' : 'good';
+  setText(get('care-title'), needsAdjustment ? 'Needs attention' : '✓ All conditions are right');
+  let tip = waiting ? 'Give it a moment and watch the tips of the leaves.' : 'A new leaf has unfolded.';
+  if (loud) tip = 'Turn the music down or pause it.';
+  else if (damp) tip = 'Hold off on watering and let the puddle dry up.';
+  else if (dry) tip = 'The soil is dry. Give it a little water.';
+  else if (dim) tip = 'Move the sunlight slider right into the green range.';
+  else if (bright) tip = 'Move the sunlight slider left into the green range.';
+  setText(get('care-tip'), tip);
+  let message = 'The soil looks a little dry.';
+  if (hiding) message = 'The plant folds its leaves inward, as if trying to hide.';
+  else if (plant.posture === 'drooping') message = 'A puddle forms under the pot, and the leaves droop.';
+  else if (damp) message = 'Extra water seeps out beneath the pot.';
+  else if (sinceWater < 1.2) message = 'The soil darkens as it absorbs the water.';
+  else if (loud) message = 'The tips of the leaves tremble as the music plays.';
+  else if (greenShoot) message = 'A tiny green shoot peeks out between the leaves.';
+  else if (!soothingLight) message = dim ? 'The light by the window fades.' : 'The bright sun washes out the tips of the leaves.';
+  else if (plant.posture === 'open' && plant.everWet && plant.bend > .04) message = 'As the puddle recedes, the leaves slowly lift.';
+  else if (plant.posture === 'open' && plant.everHid && plant.fold > .08) message = 'The plant slowly uncurls its leaves.';
+  else if (plant.posture === 'open') message = 'The leaves slowly open up.';
+  if (greenShoot) {
+    plant.announcedGrowth = true;
+    plant.growthNoticeUntil = plant.age + 5;
+  }
+  if (plant.growthNoticeUntil > plant.age && plant.posture === 'open') {
+    message = 'A tiny green shoot peeks out between the leaves.';
+  }
+  setText(observation, message);
+
+  const ease = reducedMotion ? 1 : 1 - Math.exp(-3.8 * seconds);
+  plant.bend = mix(plant.bend, plant.posture === 'drooping' ? 1 : plant.posture === 'open' ? -.24 : .08, ease);
+  plant.fold = mix(plant.fold, hiding ? 1 : 0, ease);
+}
+
+function setCondition(element, label, isGood) {
+  const tone = isGood ? 'good' : 'adjust';
+  if (element.dataset.tone !== tone) element.dataset.tone = tone;
+  setText(element, label);
+}
+
+function setText(element, value) {
+  if (element.textContent !== value) element.textContent = value;
+}
+
+let audio;
+let bus;
+let musicTimer;
+let note = 0;
+let playbackAttempt = 0;
+const melody = [60, 67, 64, 71, 69, 64, 67, 62, 65, 69, 62, 67, 64, 72, 67, 64];
+function setGain() {
+  if (bus) bus.gain.setTargetAtTime(plant.playing ? (plant.volume / 100) ** 1.6 * .36 : 0, audio.currentTime, .045);
+}
+
+function playNote() {
+  if (!plant.playing) return;
+  const time = audio.currentTime;
+  const pitch = melody[note++ % melody.length];
+  const voice = audio.createOscillator();
+  const envelope = audio.createGain();
+  voice.type = 'sine';
+  voice.frequency.value = 440 * 2 ** ((pitch - 69) / 12);
+  envelope.gain.setValueAtTime(0, time);
+  envelope.gain.linearRampToValueAtTime(.46, time + .035);
+  envelope.gain.exponentialRampToValueAtTime(.001, time + 1.4);
+  voice.connect(envelope).connect(bus);
+  voice.start(time);
+  voice.stop(time + 1.42);
+}
+
+function stopMusic() {
+  playbackAttempt++;
+  plant.playing = false;
+  clearInterval(musicTimer);
+  setGain();
+  play.setAttribute('aria-pressed', 'false');
+  setText(play, 'Play');
+}
+
+async function toggleMusic() {
+  if (plant.playing) {
+    stopMusic();
+    update(0);
+    return;
+  }
+  const attempt = ++playbackAttempt;
+  plant.playing = true;
+  play.setAttribute('aria-pressed', 'true');
+  setText(play, 'Pause');
+  try {
+    if (!audio) {
+      const AudioEngine = window.AudioContext || window.webkitAudioContext;
+      audio = new AudioEngine();
+      bus = audio.createGain();
+      bus.gain.value = 0;
+      bus.connect(audio.destination);
+    }
+    if (audio.state !== 'running') await audio.resume();
+    if (attempt !== playbackAttempt) return;
+    get('sound-error').hidden = true;
+    setGain();
+    playNote();
+    musicTimer = setInterval(playNote, 420);
+  } catch {
+    if (attempt === playbackAttempt) get('sound-error').hidden = false;
+  }
+  update(0);
+}
+
+function showSettings() {
+  light.value = plant.light;
+  volume.value = plant.volume;
+  get('volume-value').value = plant.volume + '%';
+}
+get('water').addEventListener('click', waterPlant);
+light.addEventListener('input', () => {
+  plant.light = Number(light.value);
+  showSettings();
+  update(0);
+});
+volume.addEventListener('input', () => {
+  plant.volume = Number(volume.value);
+  showSettings();
+  setGain();
+  update(0);
+});
+play.addEventListener('click', toggleMusic);
+get('reset').addEventListener('click', () => {
+  stopMusic();
+  note = 0;
+  plant = initialPlant();
+  get('sound-error').hidden = true;
+  showSettings();
+  update(0);
+  draw();
+});
+
+function ellipse(x, y, rx, ry, fill) {
+  brush.beginPath();
+  brush.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+  brush.fillStyle = fill;
+  brush.fill();
+}
+
+function leaf(x, y, angle, length, width, palette, size = 1) {
+  brush.save();
+  brush.translate(x, y);
+  brush.rotate(angle);
+  brush.scale(size, size);
+  const pigment = brush.createLinearGradient(0, -width, length * .7, width);
+  pigment.addColorStop(0, palette[0]);
+  pigment.addColorStop(.46, palette[1]);
+  pigment.addColorStop(1, palette[2]);
+  brush.beginPath();
+  brush.moveTo(0, 0);
+  brush.bezierCurveTo(length * .25, -width * 1.27, length * .76, -width, length, -width * .18);
+  brush.bezierCurveTo(length * .81, width * .64, length * .34, width * 1.06, 0, 0);
+  brush.fillStyle = pigment;
+  brush.fill();
+  brush.strokeStyle = '#e1edb565';
+  brush.lineWidth = 1.25;
+  brush.beginPath();
+  brush.moveTo(4, 0);
+  brush.quadraticCurveTo(length * .47, -width * .11, length * .91, -width * .16);
+  brush.stroke();
+  for (let i = 1; i <= 4; i++) {
+    const start = length * (.13 + i * .13);
+    brush.beginPath();
+    brush.moveTo(start, -width * .10);
+    brush.quadraticCurveTo(start + length * .1, -width * .27, start + length * .17, -width * .54);
+    brush.moveTo(start, -width * .1);
+    brush.quadraticCurveTo(start + length * .1, width * .20, start + length * .16, width * .34);
+    brush.stroke();
+  }
+  brush.restore();
+}
+
+let width = 1;
+let height = 1;
+function resize() {
+  const size = canvas.getBoundingClientRect();
+  width = size.width;
+  height = size.height;
+  const resolution = Math.min(devicePixelRatio || 1, 2);
+  canvas.width = Math.max(1, Math.round(width * resolution));
+  canvas.height = Math.max(1, Math.round(height * resolution));
+  draw();
+}
+new ResizeObserver(resize).observe(canvas);
+
+function draw() {
+  if (!width || !height) return;
+  brush.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+  const glow = plant.light / 100;
+  const wall = brush.createLinearGradient(0, 0, width, height);
+  wall.addColorStop(0, 'hsl(105 21% ' + (74 + glow * 15) + '%)');
+  wall.addColorStop(1, 'hsl(65 30% ' + (80 + glow * 15) + '%)');
+  brush.fillStyle = wall;
+  brush.fillRect(0, 0, width, height);
+
+  brush.save();
+  brush.globalAlpha = .08 + glow * .56;
+  brush.transform(1, 0, -.30, 1, width * .70, -15);
+  brush.fillStyle = '#fbf6c8';
+  brush.fillRect(0, 0, width * .16, height * .73);
+  brush.fillRect(width * .17, 0, width * .26, height * .73);
+  brush.restore();
+
+  const table = brush.createLinearGradient(0, height * .76, 0, height);
+  table.addColorStop(0, '#c5d2b9');
+  table.addColorStop(1, '#dce1ca');
+  brush.fillStyle = table;
+  brush.fillRect(0, height * .76, width, height * .24);
+
+  const scale = Math.min(width / 390, height / 424);
+  brush.save();
+  brush.translate(width * .50, height * .78);
+  brush.scale(scale, scale);
+  ellipse(4, 15, 109, 19, '#526b4530');
+  const puddle = clamp((plant.moisture - 70) / 24, 0, 1);
+  if (puddle > 0) {
+    ellipse(18, 20, 106 * puddle, 13 * puddle, '#5f9a9c9e');
+    ellipse(54, 20, 26 * puddle, 3 * puddle, '#e2f4e6b3');
+  }
+
+  const tremor = !reducedMotion && plant.playing && plant.volume > 71 ? Math.sin(plant.age * 24) * .037 : 0;
+  const sway = reducedMotion ? 0 : Math.sin(plant.age * 1.8) * .035 + tremor;
+  const fold = plant.fold;
+  const bend = plant.bend;
+  const stemX = 7 + fold * 12;
+  brush.strokeStyle = '#496b43';
+  brush.lineWidth = 5;
+  brush.lineCap = 'round';
+  brush.beginPath();
+  brush.moveTo(0, -89);
+  brush.bezierCurveTo(-8, -136, stemX - 16, -179, stemX, -243 + bend * 24);
+  brush.stroke();
+
+  const emerald = ['#294d38', '#538653', '#85a862'];
+  const sage = ['#406b42', '#75a259', '#a6bc73'];
+  if (plant.growth > 0) {
+    leaf(stemX - 3, -230 + bend * 23, -1.44 + sway + fold * .39, 72, 22, ['#537f37', '#a0c754', '#d3da82'], plant.growth);
+  }
+  leaf(1, -137, .27 + bend * .51 - fold * 1.63 + sway, 118, 32, sage, 1 - fold * .26);
+  leaf(-1, -161, 3.38 - bend * .58 + fold * 1.18 - sway, 139, 44, emerald, 1 - fold * .25);
+  leaf(1, -196, -.64 + bend * .72 - fold * .64 + sway, 145, 45, emerald, 1 - fold * .26);
+  leaf(stemX - 2, -227 + bend * 20, 3.91 - bend * .7 + fold * .62 - sway, 111, 35, sage, 1 - fold * .28);
+
+  ellipse(0, 7, 77, 14, '#a26c53');
+  ellipse(0, 2, 77, 11, '#d59a77');
+  const pot = brush.createLinearGradient(-65, -80, 65, 0);
+  pot.addColorStop(0, '#a6573e');
+  pot.addColorStop(.49, '#cd855f');
+  pot.addColorStop(1, '#e1a17a');
+  brush.fillStyle = pot;
+  brush.beginPath();
+  brush.moveTo(-69, -89);
+  brush.lineTo(-53, -4);
+  brush.bezierCurveTo(-48, 12, 48, 12, 53, -4);
+  brush.lineTo(69, -89);
+  brush.fill();
+  ellipse(0, -91, 72, 17, '#e4aa82');
+  ellipse(0, -92, 63, 11, 'hsl(27 26% ' + (44 - plant.moisture * .29) + '%)');
+  brush.strokeStyle = '#496b43';
+  brush.lineWidth = 4;
+  brush.beginPath();
+  brush.moveTo(0, -93);
+  brush.lineTo(-1, -105);
+  brush.stroke();
+
+  const splash = plant.age - plant.lastWater;
+  if (!reducedMotion && splash >= 0 && splash < .55) {
+    brush.globalAlpha = 1 - splash / .55;
+    for (let i = 0; i < 5; i++) {
+      ellipse(-29 + i * 14, -104 - Math.sin(splash * 5 + i * .4) * 18, 2.4, 5, '#6ca4b3');
+    }
+  }
+  brush.restore();
+}
+
+let previous = performance.now();
+function frame(now) {
+  const seconds = clamp((now - previous) / 1000, 0, .06);
+  previous = now;
+  update(seconds);
+  draw();
+  requestAnimationFrame(frame);
+}
+showSettings();
+update(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
